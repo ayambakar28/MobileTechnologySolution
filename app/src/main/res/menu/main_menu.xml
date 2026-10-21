@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_notif"
+        android:title="Notifikasi"
+        android:icon="@drawable/ic_bell"/>
+<!--        app:showAsAction="always"-->
+    <item
+        android:id="@+id/action_logout"
+        android:title="Keluar"/>
+<!--        app:showAsAction="never"-->
+</menu>
