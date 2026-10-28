@@ -4,36 +4,36 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapplication.R
-import com.example.myapplication.ui.home.MainActivity
+import com.example.myapplication.data.DBHelper
+import com.example.myapplication.ui.home.HomeActivity
 
 class LoginActivity : AppCompatActivity() {
-
-    private lateinit var b: ActivityLoginBinding
-    private val auth = AuthRepository()
-
+    private lateinit var db: DBHelper
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (auth.isLoggedIn()) { goHome(); return }
-        b = ActivityLoginBinding.inflate(layoutInflater); setContentView(b.root)
-        b.btnLogin.setOnClickListener { submit(register = false) }
-        b.btnRegister.setOnClickListener { submit(register = true) }
-    }
+        setContentView(R.layout.activity_login)
 
-    private fun submit(register: Boolean) {
-        val nim = b.etNim.text.toString().trim(); val pass = b.etPass.text.toString()
-        if (nim.isEmpty() || pass.length < 6) {
-            Toast.makeText(this, "NIM wajib diisi, password min. 6 karakter", Toast.LENGTH_SHORT).show(); return
-        }
-        b.progress.visibility = View.VISIBLE
-        val done: (String?) -> Unit = { err ->
-            b.progress.visibility = View.GONE
-            if (err == null) goHome() else Toast.makeText(this, err, Toast.LENGTH_LONG).show()
-        }
-        if (register) auth.register(nim, pass, done) else auth.login(nim, pass, done)
-    }
+        db = DBHelper(this)
+        val etEmail = findViewById<EditText>(R.id.etNim)
+        val etPassword = findViewById<EditText>(R.id.etPass)
+        val btnLogin = findViewById<Button>(R.id.btnLogin)
 
-    private fun goHome() { startActivity(Intent(this, MainActivity::class.java)); finish() }
+        btnLogin.setOnClickListener {
+            val email = etEmail.text.toString()
+            val password = etPassword.text.toString()
+
+            val user = db.login(email, password)
+            if(user!= null){
+                Toast.makeText(this, "Login Successful", Toast.LENGTH_SHORT).show()
+                val intent = Intent(this, HomeActivity::class.java)
+                intent.putExtra("User ID", user.id)
+            }else{
+                Toast.makeText(this, "Login Unsuccessful", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 }
