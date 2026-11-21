@@ -83,9 +83,14 @@
                     android:layout_gravity="bottom|end"
                     android:layout_margin="@dimen/space_8"
                     android:minHeight="0dp"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="0dp"
                     android:text="@string/post_use_gps"
+                    android:textSize="13sp"
                     app:icon="@drawable/ic_my_location"
-                    app:iconGravity="textStart" />
+                    app:iconGravity="textStart"
+                    app:iconSize="16dp" />
             </FrameLayout>
         </com.google.android.material.card.MaterialCardView>
 

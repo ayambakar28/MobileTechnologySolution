@@ -105,9 +105,12 @@
         <item name="android:minHeight">@dimen/button_height</item>
         <item name="android:textAppearance">@style/TextAppearance.CampusFind.Button</item>
         <item name="android:textColor">@color/cf_on_dark</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
         <item name="backgroundTint">@color/cf_navy_700</item>
         <item name="cornerRadius">@dimen/radius_medium</item>
         <item name="iconGravity">textEnd</item>
+        <item name="iconPadding">8dp</item>
         <item name="iconTint">@color/cf_on_dark</item>
         <item name="android:insetTop">0dp</item>
         <item name="android:insetBottom">0dp</item>
@@ -117,7 +120,10 @@
         <item name="android:minHeight">@dimen/button_height</item>
         <item name="android:textAppearance">@style/TextAppearance.CampusFind.Button</item>
         <item name="android:textColor">@color/cf_navy_900</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
         <item name="backgroundTint">@color/cf_lavender_200</item>
+        <item name="iconPadding">8dp</item>
         <item name="iconTint">@color/cf_navy_900</item>
         <item name="cornerRadius">@dimen/radius_medium</item>
         <item name="android:insetTop">0dp</item>
@@ -127,7 +133,12 @@
         <item name="android:minHeight">@dimen/button_height</item>
         <item name="android:textAppearance">@style/TextAppearance.CampusFind.Button</item>
         <item name="android:textColor">@color/cf_navy_700</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
         <item name="backgroundTint">@color/cf_surface</item>
+        <item name="strokeColor">@color/cf_divider</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="iconPadding">8dp</item>
         <item name="iconTint">@color/cf_navy_700</item>
         <item name="cornerRadius">@dimen/radius_medium</item>
         <item name="android:insetTop">0dp</item>
@@ -137,7 +148,10 @@
         <item name="android:minHeight">@dimen/button_height</item>
         <item name="android:textAppearance">@style/TextAppearance.CampusFind.Button</item>
         <item name="android:textColor">@color/cf_lost_text</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
         <item name="backgroundTint">@color/cf_lost_soft</item>
+        <item name="iconPadding">8dp</item>
         <item name="iconTint">@color/cf_lost_text</item>
         <item name="cornerRadius">@dimen/radius_medium</item>
         <item name="android:insetTop">0dp</item>
@@ -145,7 +159,10 @@
     </style>
     <style name="Widget.CampusFind.Button.Text" parent="Widget.Material3.Button.TextButton">
         <item name="android:textAppearance">@style/TextAppearance.CampusFind.Label</item>
-        <item name="android:textColor">@color/cf_navy_700</item>
+        <item name="android:textColor">@color/cf_navy_900</item>
+        <item name="iconTint">@color/cf_navy_900</item>
+        <item name="iconPadding">6dp</item>
+        <item name="android:elevation">0dp</item>
         <item name="android:minHeight">48dp</item>
         <item name="android:insetTop">0dp</item>
         <item name="android:insetBottom">0dp</item>
@@ -214,15 +231,15 @@
         <item name="chipIconTint">@null</item>
     </style>
     <style name="Widget.CampusFind.Chip.Lost" parent="Widget.CampusFind.Chip.Filter">
-        <item name="android:textColor">@color/cf_lost_text</item>
+        <item name="android:textColor">@color/chip_text_lost</item>
         <item name="chipBackgroundColor">@color/chip_bg_lost</item>
     </style>
     <style name="Widget.CampusFind.Chip.Found" parent="Widget.CampusFind.Chip.Filter">
-        <item name="android:textColor">@color/cf_found_text</item>
+        <item name="android:textColor">@color/chip_text_found</item>
         <item name="chipBackgroundColor">@color/chip_bg_found</item>
     </style>
     <style name="Widget.CampusFind.Chip.Returned" parent="Widget.CampusFind.Chip.Filter">
-        <item name="android:textColor">@color/cf_returned_text</item>
+        <item name="android:textColor">@color/chip_text_returned</item>
         <item name="chipBackgroundColor">@color/chip_bg_returned</item>
     </style>
     <!-- Non-checkable pill: recent searches, quick replies -->
@@ -264,12 +281,18 @@
         <item name="android:background">@drawable/bg_bottom_nav</item>
         <item name="itemIconTint">@color/nav_item_color</item>
         <item name="itemTextColor">@color/nav_item_color</item>
+        <item name="itemIconSize">24dp</item>
+        <item name="itemPaddingTop">10dp</item>
+        <item name="itemPaddingBottom">10dp</item>
+        <item name="paddingBottomSystemWindowInsets">false</item>
         <item name="itemActiveIndicatorStyle">@style/Widget.CampusFind.BottomNav.Indicator</item>
         <item name="labelVisibilityMode">labeled</item>
         <item name="elevation">12dp</item>
     </style>
     <style name="Widget.CampusFind.BottomNav.Indicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
         <item name="android:color">@android:color/transparent</item>
+        <item name="android:height">26dp</item>
+        <item name="android:width">48dp</item>
     </style>
 
     <style name="Widget.CampusFind.Toolbar" parent="Widget.Material3.Toolbar">

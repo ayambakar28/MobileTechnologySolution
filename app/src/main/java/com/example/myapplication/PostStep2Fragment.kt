@@ -1,59 +1,145 @@
 package com.example.myapplication
 
+import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Bundle
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.fragment.app.Fragment
+import com.example.myapplication.databinding.FragmentPostStep2Binding
+import com.example.myapplication.databinding.ItemPhotoSlotBinding
+import java.io.File
+import java.io.FileOutputStream
 
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
-
-/**
- * A simple [Fragment] subclass.
- * Use the [PostStep2Fragment.newInstance] factory method to
- * create an instance of this fragment.
- */
 class PostStep2Fragment : Fragment() {
-    // TODO: Rename and change types of parameters
-    private var param1: String? = null
-    private var param2: String? = null
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        arguments?.let {
-            param1 = it.getString(ARG_PARAM1)
-            param2 = it.getString(ARG_PARAM2)
+    private var _binding: FragmentPostStep2Binding? = null
+    private val binding get() = _binding!!
+
+    private val postActivity: PostItemActivity?
+        get() = activity as? PostItemActivity
+
+    private val galleryLauncher =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            if (uri != null) addPhotoUri(uri.toString())
+        }
+
+    private val cameraLauncher =
+        registerForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap: Bitmap? ->
+            if (bitmap != null) {
+                val uri = saveBitmapToCache(bitmap)
+                if (uri != null) addPhotoUri(uri.toString())
+            }
+        }
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentPostStep2Binding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        binding.btnGallery.setOnClickListener { openGalleryIfAllowed() }
+        binding.btnCamera.setOnClickListener { openCameraIfAllowed() }
+
+        val slots = listOf(binding.slot1, binding.slot2, binding.slot3)
+        slots.forEachIndexed { index, slot ->
+            slot.root.setOnClickListener {
+                val photos = postActivity?.draft?.photoUris ?: return@setOnClickListener
+                if (index >= photos.size) {
+                    openGalleryIfAllowed()
+                }
+            }
+            slot.btnRemove.setOnClickListener {
+                val photos = postActivity?.draft?.photoUris ?: return@setOnClickListener
+                if (index < photos.size) {
+                    photos.removeAt(index)
+                    renderSlots()
+                }
+            }
+        }
+
+        renderSlots()
+    }
+
+    private fun openGalleryIfAllowed() {
+        val photos = postActivity?.draft?.photoUris ?: return
+        if (photos.size >= 3) {
+            Toast.makeText(requireContext(), "Maximum 3 photos attached.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        galleryLauncher.launch("image/*")
+    }
+
+    private fun openCameraIfAllowed() {
+        val photos = postActivity?.draft?.photoUris ?: return
+        if (photos.size >= 3) {
+            Toast.makeText(requireContext(), "Maximum 3 photos attached.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        try {
+            cameraLauncher.launch(null)
+        } catch (_: Exception) {
+            galleryLauncher.launch("image/*")
         }
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_post_step2, container, false)
+    private fun addPhotoUri(uriString: String) {
+        val photos = postActivity?.draft?.photoUris ?: return
+        if (photos.size < 3) {
+            photos.add(uriString)
+            renderSlots()
+        }
     }
 
-    companion object {
-        /**
-         * Use this factory method to create a new instance of
-         * this fragment using the provided parameters.
-         *
-         * @param param1 Parameter 1.
-         * @param param2 Parameter 2.
-         * @return A new instance of fragment PostStep2Fragment.
-         */
-        // TODO: Rename and change types and number of parameters
-        @JvmStatic
-        fun newInstance(param1: String, param2: String) =
-            PostStep2Fragment().apply {
-                arguments = Bundle().apply {
-                    putString(ARG_PARAM1, param1)
-                    putString(ARG_PARAM2, param2)
+    private fun renderSlots() {
+        val photos = postActivity?.draft?.photoUris ?: emptyList()
+        binding.tvPhotoCount.text = getString(R.string.post_photo_count_format, photos.size)
+
+        val slots: List<ItemPhotoSlotBinding> = listOf(binding.slot1, binding.slot2, binding.slot3)
+        slots.forEachIndexed { index, slot ->
+            slot.tvAddLabel.text = getString(R.string.post_add_photo_format, index + 1)
+            if (index < photos.size) {
+                slot.groupAdd.visibility = View.GONE
+                slot.ivPhoto.visibility = View.VISIBLE
+                slot.btnRemove.visibility = View.VISIBLE
+                slot.tvMainLabel.visibility = if (index == 0) View.VISIBLE else View.GONE
+                try {
+                    slot.ivPhoto.setImageURI(Uri.parse(photos[index]))
+                } catch (_: Exception) {
+                    slot.ivPhoto.setImageResource(R.drawable.ic_image)
                 }
+            } else {
+                slot.groupAdd.visibility = View.VISIBLE
+                slot.ivPhoto.visibility = View.GONE
+                slot.btnRemove.visibility = View.GONE
+                slot.tvMainLabel.visibility = View.GONE
             }
+        }
+    }
+
+    private fun saveBitmapToCache(bitmap: Bitmap): Uri? {
+        return try {
+            val file = File(requireContext().cacheDir, "photo_${System.currentTimeMillis()}.jpg")
+            FileOutputStream(file).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 88, out)
+            }
+            Uri.fromFile(file)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }

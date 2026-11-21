@@ -1,59 +1,126 @@
 package com.example.myapplication
 
+import android.content.res.ColorStateList
 import android.os.Bundle
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
+import androidx.core.content.ContextCompat
+import androidx.core.widget.TextViewCompat
+import androidx.core.widget.doAfterTextChanged
+import androidx.fragment.app.Fragment
+import com.example.myapplication.data.ItemStatus
+import com.example.myapplication.databinding.FragmentPostStep1Binding
+import com.google.android.material.chip.Chip
 
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
-
-/**
- * A simple [Fragment] subclass.
- * Use the [PostStep1Fragment.newInstance] factory method to
- * create an instance of this fragment.
- */
 class PostStep1Fragment : Fragment() {
-    // TODO: Rename and change types of parameters
-    private var param1: String? = null
-    private var param2: String? = null
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        arguments?.let {
-            param1 = it.getString(ARG_PARAM1)
-            param2 = it.getString(ARG_PARAM2)
+    private var _binding: FragmentPostStep1Binding? = null
+    private val binding get() = _binding!!
+
+    private val postActivity: PostItemActivity?
+        get() = activity as? PostItemActivity
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentPostStep1Binding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        binding.cardTypeLost.setOnClickListener { selectType(ItemStatus.LOST) }
+        binding.cardTypeFound.setOnClickListener { selectType(ItemStatus.FOUND) }
+
+        binding.etTitle.doAfterTextChanged {
+            binding.tilTitle.error = null
+        }
+        binding.etDescription.doAfterTextChanged {
+            binding.tilDescription.error = null
+        }
+
+        // Default selection: Found (matches XML motivation banner)
+        val initialStatus = postActivity?.draft?.status ?: ItemStatus.FOUND
+        selectType(initialStatus)
+    }
+
+    private fun selectType(status: ItemStatus) {
+        val isFound = status == ItemStatus.FOUND
+        binding.cardTypeFound.isChecked = isFound
+        binding.cardTypeLost.isChecked = !isFound
+        postActivity?.draft?.status = status
+
+        val ctx = requireContext()
+        if (isFound) {
+            binding.tvMotivation.setText(R.string.post_motivation_found)
+            binding.tvMotivation.backgroundTintList =
+                ColorStateList.valueOf(ContextCompat.getColor(ctx, R.color.cf_banner_mint))
+            val textColor = ContextCompat.getColor(ctx, R.color.cf_found_text)
+            binding.tvMotivation.setTextColor(textColor)
+            TextViewCompat.setCompoundDrawableTintList(binding.tvMotivation, ColorStateList.valueOf(textColor))
+            binding.groupFoundOnly.visibility = View.VISIBLE
+        } else {
+            binding.tvMotivation.setText(R.string.post_motivation_lost)
+            binding.tvMotivation.backgroundTintList =
+                ColorStateList.valueOf(ContextCompat.getColor(ctx, R.color.cf_lavender_100))
+            val textColor = ContextCompat.getColor(ctx, R.color.cf_navy_900)
+            binding.tvMotivation.setTextColor(textColor)
+            TextViewCompat.setCompoundDrawableTintList(binding.tvMotivation, ColorStateList.valueOf(textColor))
+            binding.groupFoundOnly.visibility = View.GONE
         }
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_post_step1, container, false)
+    fun validateAndSave(): Boolean {
+        val draft = postActivity?.draft ?: return true
+        val title = binding.etTitle.text?.toString()?.trim().orEmpty()
+        if (title.isEmpty()) {
+            binding.tilTitle.error = getString(R.string.post_error_title)
+            binding.etTitle.requestFocus()
+            return false
+        }
+
+        val catId = binding.cgCategory.checkedChipId
+        val category = if (catId != View.NO_ID) {
+            binding.root.findViewById<Chip>(catId)?.text?.toString().orEmpty()
+        } else {
+            ""
+        }
+        if (category.isEmpty()) {
+            Toast.makeText(requireContext(), R.string.post_error_category, Toast.LENGTH_SHORT).show()
+            return false
+        }
+
+        val description = binding.etDescription.text?.toString()?.trim().orEmpty()
+        if (description.isEmpty()) {
+            binding.tilDescription.error = "Please enter key details."
+            binding.etDescription.requestFocus()
+            return false
+        }
+
+        draft.title = title
+        draft.category = category
+        draft.colors.clear()
+        for (id in binding.cgColor.checkedChipIds) {
+            binding.root.findViewById<Chip>(id)?.text?.toString()?.let { draft.colors.add(it) }
+        }
+        draft.shape = binding.cgShape.checkedChipId.takeIf { it != View.NO_ID }?.let { id ->
+            binding.root.findViewById<Chip>(id)?.text?.toString().orEmpty()
+        }.orEmpty()
+        draft.itemType = binding.etItemType.text?.toString()?.trim().orEmpty()
+        draft.brand = binding.etBrand.text?.toString()?.trim().orEmpty()
+        draft.description = description
+        draft.marks = binding.etMarks.text?.toString()?.trim().orEmpty()
+        draft.hiddenDetail = binding.etHiddenDetail.text?.toString()?.trim().orEmpty()
+        return true
     }
 
-    companion object {
-        /**
-         * Use this factory method to create a new instance of
-         * this fragment using the provided parameters.
-         *
-         * @param param1 Parameter 1.
-         * @param param2 Parameter 2.
-         * @return A new instance of fragment PostStep1Fragment.
-         */
-        // TODO: Rename and change types and number of parameters
-        @JvmStatic
-        fun newInstance(param1: String, param2: String) =
-            PostStep1Fragment().apply {
-                arguments = Bundle().apply {
-                    putString(ARG_PARAM1, param1)
-                    putString(ARG_PARAM2, param2)
-                }
-            }
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }

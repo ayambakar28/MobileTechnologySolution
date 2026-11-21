@@ -169,10 +169,14 @@
                     android:layout_width="wrap_content"
                     android:layout_height="36dp"
                     android:minHeight="0dp"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="0dp"
                     android:text="@string/chat_view"
                     android:textSize="12sp"
                     app:icon="@drawable/ic_arrow_forward"
-                    app:iconGravity="textEnd" />
+                    app:iconGravity="textEnd"
+                    app:iconSize="16dp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
