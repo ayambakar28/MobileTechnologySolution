@@ -44,9 +44,36 @@ class PostStep1Fragment : Fragment() {
             binding.tilDescription.error = null
         }
 
-        // Default selection: Found (matches XML motivation banner)
-        val initialStatus = postActivity?.draft?.status ?: ItemStatus.FOUND
-        selectType(initialStatus)
+        // Default or pre-filled selection (supports Edit mode)
+        val draft = postActivity?.draft
+        selectType(draft?.status ?: ItemStatus.FOUND)
+        if (draft != null && draft.title.isNotEmpty()) {
+            binding.etTitle.setText(draft.title)
+            binding.etItemType.setText(draft.itemType)
+            binding.etBrand.setText(draft.brand)
+            binding.etDescription.setText(draft.description)
+            binding.etMarks.setText(draft.marks)
+            binding.etHiddenDetail.setText(draft.hiddenDetail)
+
+            for (i in 0 until binding.cgCategory.childCount) {
+                val chip = binding.cgCategory.getChildAt(i) as? Chip ?: continue
+                if (chip.text.toString().equals(draft.category, ignoreCase = true)) {
+                    chip.isChecked = true
+                    break
+                }
+            }
+            for (i in 0 until binding.cgColor.childCount) {
+                val chip = binding.cgColor.getChildAt(i) as? Chip ?: continue
+                chip.isChecked = draft.colors.any { it.equals(chip.text.toString(), ignoreCase = true) }
+            }
+            for (i in 0 until binding.cgShape.childCount) {
+                val chip = binding.cgShape.getChildAt(i) as? Chip ?: continue
+                if (chip.text.toString().equals(draft.shape, ignoreCase = true)) {
+                    chip.isChecked = true
+                    break
+                }
+            }
+        }
     }
 
     private fun selectType(status: ItemStatus) {

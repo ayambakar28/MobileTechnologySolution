@@ -7,6 +7,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 object AppRepository {
 
@@ -15,6 +16,10 @@ object AppRepository {
     private const val KEY_LOGGED_IN = "logged_in"
     private const val KEY_USER_NAME = "user_name"
     private const val KEY_USER_CAMPUS = "user_campus"
+
+    private val nowMillis = System.currentTimeMillis()
+    private fun hoursAgo(h: Long): Long = nowMillis - TimeUnit.HOURS.toMillis(h)
+    private fun daysAgo(d: Long): Long = nowMillis - TimeUnit.DAYS.toMillis(d)
 
     val currentUser = UserProfile()
 
@@ -51,6 +56,7 @@ object AppRepository {
             isSaved = true,
             views = 24,
             inquiries = 3,
+            createdAtMillis = hoursAgo(2),
             placeholderIcon = R.drawable.ic_image
         ),
         ReportItem(
@@ -77,6 +83,7 @@ object AppRepository {
             isSaved = false,
             views = 18,
             inquiries = 2,
+            createdAtMillis = hoursAgo(5),
             placeholderIcon = R.drawable.ic_image
         ),
         ReportItem(
@@ -103,6 +110,7 @@ object AppRepository {
             isSaved = false,
             views = 12,
             inquiries = 3,
+            createdAtMillis = daysAgo(1),
             placeholderIcon = R.drawable.ic_image
         ),
         ReportItem(
@@ -129,6 +137,7 @@ object AppRepository {
             isSaved = true,
             views = 31,
             inquiries = 1,
+            createdAtMillis = daysAgo(1) - TimeUnit.HOURS.toMillis(3),
             placeholderIcon = R.drawable.ic_image
         ),
         ReportItem(
@@ -155,6 +164,7 @@ object AppRepository {
             isSaved = false,
             views = 45,
             inquiries = 4,
+            createdAtMillis = daysAgo(3),
             placeholderIcon = R.drawable.ic_image
         ),
         ReportItem(
@@ -181,6 +191,7 @@ object AppRepository {
             isSaved = false,
             views = 15,
             inquiries = 2,
+            createdAtMillis = hoursAgo(6),
             placeholderIcon = R.drawable.ic_image
         )
     )
@@ -338,7 +349,154 @@ object AppRepository {
         prefs(context).edit().putBoolean(key, value).apply()
     }
 
+    // --- Basic Auth Logic ---
+
+    fun validateLogin(identifier: String, password: String): Boolean {
+        val id = identifier.trim()
+        val isNim = id.all { it.isDigit() } && id.length in 8..12
+        val isBinusEmail = id.endsWith("@binus.ac.id", ignoreCase = true) ||
+            id.endsWith("@binus.edu", ignoreCase = true)
+        return (isNim || isBinusEmail) && password.length >= 4
+    }
+
+    // --- Item Queries & Mutations ---
+
     fun getItemById(id: String?): ReportItem? = items.find { it.id == id }
+
+    fun recordItemView(itemId: String) {
+        getItemById(itemId)?.let { it.views += 1 }
+    }
+
+    fun searchAndFilterItems(
+        query: String,
+        filter: FilterState,
+        userCampus: String
+    ): List<ReportItem> {
+        val now = System.currentTimeMillis()
+        val maxAgeMillis: Long? = when (filter.dateRange) {
+            "Today" -> TimeUnit.DAYS.toMillis(1)
+            "7 days" -> TimeUnit.DAYS.toMillis(7)
+            "30 days" -> TimeUnit.DAYS.toMillis(30)
+            else -> null
+        }
+
+        val filtered = items.filter { item ->
+            val matchesQuery = query.isEmpty() ||
+                item.title.contains(query, ignoreCase = true) ||
+                item.location.contains(query, ignoreCase = true) ||
+                item.category.contains(query, ignoreCase = true) ||
+                item.campus.contains(query, ignoreCase = true) ||
+                item.brand.contains(query, ignoreCase = true) ||
+                item.colors.any { it.contains(query, ignoreCase = true) }
+
+            val matchesStatus = filter.status == null || item.status == filter.status
+            val matchesCampus = filter.campus.isNullOrBlank() ||
+                item.campus.equals(filter.campus, ignoreCase = true)
+            val matchesCategory = filter.category.isNullOrBlank() ||
+                item.category.equals(filter.category, ignoreCase = true)
+            val matchesColors = filter.colors.isEmpty() ||
+                item.colors.any { c -> filter.colors.any { it.equals(c, ignoreCase = true) } }
+            val matchesDate = maxAgeMillis == null || (now - item.createdAtMillis) <= maxAgeMillis
+
+            matchesQuery && matchesStatus && matchesCampus && matchesCategory && matchesColors && matchesDate
+        }
+
+        return if (filter.sortBy == "Nearest to me") {
+            filtered.sortedWith(
+                compareByDescending<ReportItem> { it.campus.equals(userCampus, ignoreCase = true) }
+                    .thenByDescending { it.createdAtMillis }
+            )
+        } else {
+            filtered.sortedByDescending { it.createdAtMillis }
+        }
+    }
+
+    fun addItem(item: ReportItem, matchAlerts: Boolean = true) {
+        items.add(0, item)
+        if (matchAlerts) {
+            checkAndNotifyPossibleMatch(item)
+        }
+    }
+
+    fun updateItem(updated: ReportItem) {
+        val idx = items.indexOfFirst { it.id == updated.id }
+        if (idx >= 0) {
+            items[idx] = updated
+            chatRooms.filter { it.itemId == updated.id }.forEach { room ->
+                room.itemStatus = updated.status
+            }
+        }
+    }
+
+    fun updateItemStatus(itemId: String, newStatus: ItemStatus) {
+        val item = getItemById(itemId) ?: return
+        if (item.status == newStatus) return
+        item.status = newStatus
+
+        val statusLabel = when (newStatus) {
+            ItemStatus.LOST -> "Lost"
+            ItemStatus.FOUND -> "Found"
+            ItemStatus.RETURNED -> "Returned"
+        }
+
+        chatRooms.filter { it.itemId == itemId }.forEach { room ->
+            room.itemStatus = newStatus
+            room.messages.add(
+                ChatMessage.System(
+                    id = "sys_${System.currentTimeMillis()}",
+                    text = "Item status updated to $statusLabel · Today ${currentTimeString()}"
+                )
+            )
+            room.lastTime = currentTimeString()
+        }
+
+        notifications.add(
+            0,
+            NotificationItem(
+                id = "n_${UUID.randomUUID().toString().take(6)}",
+                type = NotifType.STATUS,
+                title = "Item marked as $statusLabel",
+                body = "'${item.title}' has been updated to $statusLabel.",
+                time = "Just now",
+                isUnread = true,
+                relatedItemId = item.id
+            )
+        )
+    }
+
+    fun deleteItem(itemId: String) {
+        items.removeAll { it.id == itemId }
+    }
+
+    private fun checkAndNotifyPossibleMatch(newItem: ReportItem) {
+        val targetStatus = when (newItem.status) {
+            ItemStatus.LOST -> ItemStatus.FOUND
+            ItemStatus.FOUND -> ItemStatus.LOST
+            ItemStatus.RETURNED -> return
+        }
+        val match = items.firstOrNull { other ->
+            other.id != newItem.id &&
+                other.status == targetStatus &&
+                other.category.equals(newItem.category, ignoreCase = true) &&
+                (other.campus.equals(newItem.campus, ignoreCase = true) ||
+                    other.colors.any { c -> newItem.colors.any { it.equals(c, ignoreCase = true) } })
+        } ?: return
+
+        notifications.add(
+            0,
+            NotificationItem(
+                id = "n_${UUID.randomUUID().toString().take(6)}",
+                type = NotifType.MATCH,
+                title = "Possible match found",
+                body = "'${match.title}' at ${match.campus} matches your '${newItem.title}' post.",
+                time = "Just now",
+                isUnread = true,
+                relatedItemId = match.id
+            )
+        )
+    }
+
+    // --- Chat & Claim Logic ---
 
     fun getChatById(id: String?): ChatRoom? = chatRooms.find { it.id == id }
 
@@ -372,13 +530,103 @@ object AppRepository {
         return room
     }
 
-    fun addItem(item: ReportItem) {
-        items.add(0, item)
+    fun submitClaim(item: ReportItem, proof: String, photoUri: String?): ChatRoom {
+        item.inquiries += 1
+        val room = getOrCreateChatForItem(item)
+        val now = currentTimeString()
+        room.messages.add(
+            ChatMessage.Text(
+                id = "claim_${System.currentTimeMillis()}",
+                text = "Claim verification: $proof",
+                time = now,
+                isOutgoing = true
+            )
+        )
+        if (photoUri != null) {
+            room.messages.add(
+                ChatMessage.Image(
+                    id = "claim_img_${System.currentTimeMillis()}",
+                    filename = "proof_photo.jpg",
+                    caption = "Claim proof photo",
+                    time = now,
+                    isOutgoing = true,
+                    imageUri = photoUri
+                )
+            )
+        }
+        room.lastMessage = "Claim verification: $proof"
+        room.lastTime = now
+        return room
     }
 
-    fun deleteItem(itemId: String) {
-        items.removeAll { it.id == itemId }
+    fun sendChatMessage(
+        room: ChatRoom,
+        text: String?,
+        photoUri: String? = null,
+        photoName: String = "photo.jpg"
+    ): Boolean {
+        val cleanText = text?.trim().orEmpty()
+        val now = currentTimeString()
+        return when {
+            photoUri != null -> {
+                val caption = cleanText.ifBlank { "Photo attachment" }
+                room.messages.add(
+                    ChatMessage.Image(
+                        id = "img_${System.currentTimeMillis()}",
+                        filename = photoName,
+                        caption = caption,
+                        time = now,
+                        isOutgoing = true,
+                        imageUri = photoUri
+                    )
+                )
+                room.lastMessage = "Photo: $caption"
+                room.lastTime = now
+                true
+            }
+            cleanText.isNotEmpty() -> {
+                room.messages.add(
+                    ChatMessage.Text(
+                        id = "txt_${System.currentTimeMillis()}",
+                        text = cleanText,
+                        time = now,
+                        isOutgoing = true
+                    )
+                )
+                room.lastMessage = cleanText
+                room.lastTime = now
+                true
+            }
+            else -> false
+        }
     }
+
+    fun generateSimulatedReply(room: ChatRoom, userText: String): ChatMessage.Text {
+        val lower = userText.lowercase(Locale.getDefault())
+        val replyText = when {
+            lower.contains("meet") || lower.contains("where") ->
+                "We can meet near ${room.itemLocation} after class. Does that work?"
+            lower.contains("thank") ->
+                "You're welcome! Glad to help a fellow BINUSian."
+            lower.contains("on my way") ->
+                "Great, I'll wait by the main entrance!"
+            else ->
+                "Got it! Let me check and confirm with you shortly."
+        }
+        val now = currentTimeString()
+        val msg = ChatMessage.Text(
+            id = "reply_${System.currentTimeMillis()}",
+            text = replyText,
+            time = now,
+            isOutgoing = false
+        )
+        room.messages.add(msg)
+        room.lastMessage = replyText
+        room.lastTime = now
+        return msg
+    }
+
+    // --- Notifications & Helpers ---
 
     fun unreadNotificationCount(): Int = notifications.count { it.isUnread }
 

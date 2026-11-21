@@ -63,6 +63,9 @@ class PostStep3Fragment : Fragment() {
         val draft = postActivity?.draft
         binding.tvDate.text = draft?.dateLabel ?: "Today"
         binding.tvTime.text = draft?.timeLabel ?: "14:00 WIB"
+        if (!draft?.spot.isNullOrBlank()) {
+            binding.etSpot.setText(draft?.spot)
+        }
 
         val currentCampus = draft?.campus ?: getString(R.string.campus_kemanggisan)
         when (currentCampus) {

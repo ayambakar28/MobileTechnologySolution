@@ -199,24 +199,11 @@ class SearchFragment : Fragment() {
     }
 
     private fun renderResults() {
-        val filtered = AppRepository.items.filter { item ->
-            val matchesQuery = query.isEmpty() ||
-                item.title.contains(query, ignoreCase = true) ||
-                item.location.contains(query, ignoreCase = true) ||
-                item.category.contains(query, ignoreCase = true) ||
-                item.campus.contains(query, ignoreCase = true) ||
-                item.colors.any { it.contains(query, ignoreCase = true) }
-
-            val matchesStatus = filterState.status == null || item.status == filterState.status
-            val matchesCampus = filterState.campus.isNullOrBlank() ||
-                item.campus.equals(filterState.campus, ignoreCase = true)
-            val matchesCategory = filterState.category.isNullOrBlank() ||
-                item.category.equals(filterState.category, ignoreCase = true)
-            val matchesColors = filterState.colors.isEmpty() ||
-                item.colors.any { c -> filterState.colors.any { it.equals(c, ignoreCase = true) } }
-
-            matchesQuery && matchesStatus && matchesCampus && matchesCategory && matchesColors
-        }
+        val filtered = AppRepository.searchAndFilterItems(
+            query = query,
+            filter = filterState,
+            userCampus = AppRepository.currentUser.campus
+        )
 
         totalPages = maxOf(1, (filtered.size + pageSize - 1) / pageSize)
         if (currentPage > totalPages) currentPage = totalPages

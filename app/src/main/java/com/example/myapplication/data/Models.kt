@@ -29,10 +29,11 @@ data class ReportItem(
     val posterVerified: Boolean = true,
     val isMine: Boolean = false,
     var isSaved: Boolean = false,
-    val views: Int = 1,
-    val inquiries: Int = 0,
+    var views: Int = 1,
+    var inquiries: Int = 0,
+    val createdAtMillis: Long = System.currentTimeMillis(),
     val photoUris: List<String> = emptyList(),
-    @DrawableRes val placeholderIcon: Int = 0
+    @param:DrawableRes val placeholderIcon: Int = 0
 )
 
 sealed class ChatMessage {

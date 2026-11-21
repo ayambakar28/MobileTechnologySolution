@@ -34,6 +34,7 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var binding: ActivityChatBinding
     private lateinit var room: ChatRoom
     private lateinit var adapter: ChatMessageAdapter
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var pendingPhotoUri: String? = null
     private var pendingPhotoName: String = "photo.jpg"
 
@@ -120,14 +121,7 @@ class ChatActivity : AppCompatActivity() {
                         true
                     }
                     R.id.action_mark_returned -> {
-                        room.itemStatus = ItemStatus.RETURNED
-                        AppRepository.getItemById(room.itemId)?.status = ItemStatus.RETURNED
-                        room.messages.add(
-                            ChatMessage.System(
-                                id = "sys_${System.currentTimeMillis()}",
-                                text = "Item marked as Returned · Today ${AppRepository.currentTimeString()}"
-                            )
-                        )
+                        AppRepository.updateItemStatus(room.itemId, ItemStatus.RETURNED)
                         UiHelpers.bindStatusBadge(binding.tvItemStatus, room.itemStatus)
                         renderMessages()
                         true
@@ -158,44 +152,37 @@ class ChatActivity : AppCompatActivity() {
         binding.btnSend.setOnClickListener {
             val text = binding.etMessage.text?.toString()?.trim().orEmpty()
             val photoUri = pendingPhotoUri
-            if (photoUri != null) {
-                val now = AppRepository.currentTimeString()
-                val caption = text.ifBlank { "Photo attachment" }
-                room.messages.add(
-                    ChatMessage.Image(
-                        id = "img_${System.currentTimeMillis()}",
-                        filename = pendingPhotoName,
-                        caption = caption,
-                        time = now,
-                        isOutgoing = true,
-                        imageUri = photoUri
-                    )
-                )
-                room.lastMessage = "📷 $caption"
-                room.lastTime = now
-                clearPhotoPreview()
+            if (AppRepository.sendChatMessage(room, text, photoUri, pendingPhotoName)) {
+                if (photoUri != null) clearPhotoPreview()
                 binding.etMessage.setText("")
                 renderMessages()
-            } else if (text.isNotEmpty()) {
-                sendTextMessage(text)
-                binding.etMessage.setText("")
+                scheduleSimulatedReply(text.ifBlank { "photo" })
             }
         }
     }
 
     private fun sendTextMessage(text: String) {
-        val now = AppRepository.currentTimeString()
-        room.messages.add(
-            ChatMessage.Text(
-                id = "txt_${System.currentTimeMillis()}",
-                text = text,
-                time = now,
-                isOutgoing = true
-            )
-        )
-        room.lastMessage = text
-        room.lastTime = now
-        renderMessages()
+        if (AppRepository.sendChatMessage(room, text)) {
+            renderMessages()
+            scheduleSimulatedReply(text)
+        }
+    }
+
+    private fun scheduleSimulatedReply(userText: String) {
+        handler.removeCallbacksAndMessages(null)
+        val firstName = room.peerName.substringBefore(" ")
+        binding.tvTyping.text = getString(R.string.chat_typing_format, firstName)
+        binding.tvTyping.visibility = View.VISIBLE
+        handler.postDelayed({
+            binding.tvTyping.visibility = View.GONE
+            AppRepository.generateSimulatedReply(room, userText)
+            renderMessages()
+        }, 1100L)
+    }
+
+    override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
+        super.onDestroy()
     }
 
     private fun renderMessages() {

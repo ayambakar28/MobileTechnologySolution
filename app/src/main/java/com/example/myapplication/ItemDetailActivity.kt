@@ -60,6 +60,7 @@ class ItemDetailActivity : AppCompatActivity() {
             finish()
             return
         }
+        AppRepository.recordItemView(item.id)
 
         setupToolbar()
         setupPhotos()
@@ -254,7 +255,7 @@ class ItemDetailActivity : AppCompatActivity() {
         }
 
         binding.btnMarkReturned.setOnClickListener {
-            item.status = ItemStatus.RETURNED
+            AppRepository.updateItemStatus(item.id, ItemStatus.RETURNED)
             UiHelpers.bindStatusBadge(binding.tvStatus, item.status)
             bindJourney()
             updateActionBar()
@@ -278,29 +279,7 @@ class ItemDetailActivity : AppCompatActivity() {
                 b.tilClaimProof.error = "Please provide verification details."
                 return@setOnClickListener
             }
-            val room = AppRepository.getOrCreateChatForItem(item)
-            room.messages.add(
-                ChatMessage.Text(
-                    id = "claim_${System.currentTimeMillis()}",
-                    text = "Claim verification: $proof",
-                    time = AppRepository.currentTimeString(),
-                    isOutgoing = true
-                )
-            )
-            if (claimAttachUri != null) {
-                room.messages.add(
-                    ChatMessage.Image(
-                        id = "claim_img_${System.currentTimeMillis()}",
-                        filename = "proof_photo.jpg",
-                        caption = "Claim proof photo",
-                        time = AppRepository.currentTimeString(),
-                        isOutgoing = true,
-                        imageUri = claimAttachUri
-                    )
-                )
-            }
-            room.lastMessage = "Claim verification: $proof"
-            room.lastTime = AppRepository.currentTimeString()
+            val room = AppRepository.submitClaim(item, proof, claimAttachUri)
 
             dialog.dismiss()
             Toast.makeText(this, "Claim sent! Opening chat...", Toast.LENGTH_SHORT).show()

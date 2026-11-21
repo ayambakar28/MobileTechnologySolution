@@ -69,6 +69,11 @@ class LoginActivity : AppCompatActivity() {
             return
         }
 
+        if (!AppRepository.validateLogin(nim, password)) {
+            showError(getString(R.string.login_error_invalid))
+            return
+        }
+
         if (nim.all { it.isDigit() } && nim.length >= 8) {
             AppRepository.currentUser.nim = nim
         }

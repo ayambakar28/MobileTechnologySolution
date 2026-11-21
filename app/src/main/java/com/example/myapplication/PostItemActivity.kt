@@ -25,6 +25,10 @@ import java.util.UUID
 
 class PostItemActivity : AppCompatActivity() {
 
+    companion object {
+        const val EXTRA_EDIT_ITEM_ID = "extra_edit_item_id"
+    }
+
     data class PostDraft(
         var status: ItemStatus = ItemStatus.FOUND,
         var title: String = "",
@@ -46,6 +50,7 @@ class PostItemActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityPostItemBinding
     val draft = PostDraft(campus = AppRepository.currentUser.campus)
+    private var editingItem: ReportItem? = null
     private val handler = Handler(Looper.getMainLooper())
 
     private var step1Fragment: PostStep1Fragment? = null
@@ -62,6 +67,26 @@ class PostItemActivity : AppCompatActivity() {
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
+        }
+
+        val editId = intent.getStringExtra(EXTRA_EDIT_ITEM_ID)
+        editingItem = AppRepository.getItemById(editId)
+        editingItem?.let { existing ->
+            draft.status = if (existing.status == ItemStatus.LOST) ItemStatus.LOST else ItemStatus.FOUND
+            draft.title = existing.title
+            draft.category = existing.category
+            draft.colors.clear()
+            draft.colors.addAll(existing.colors)
+            draft.shape = existing.shape
+            draft.itemType = existing.itemType
+            draft.brand = existing.brand
+            draft.description = existing.description
+            draft.marks = existing.marks
+            draft.hiddenDetail = existing.hiddenDetail
+            draft.photoUris.clear()
+            draft.photoUris.addAll(existing.photoUris)
+            draft.campus = existing.campus
+            draft.spot = existing.location
         }
 
         binding.vpPost.isUserInputEnabled = false
@@ -158,39 +183,62 @@ class PostItemActivity : AppCompatActivity() {
         binding.btnBack.isEnabled = false
 
         handler.postDelayed({
-            val prefix = if (draft.status == ItemStatus.LOST) "L" else "F"
-            val codeNum = (31..99).random()
-            val user = AppRepository.currentUser
+            val existing = editingItem
+            if (existing != null) {
+                val updated = existing.copy(
+                    title = draft.title.ifBlank { existing.title },
+                    status = draft.status,
+                    category = draft.category.ifBlank { existing.category },
+                    colors = draft.colors.toList(),
+                    shape = draft.shape,
+                    itemType = draft.itemType,
+                    brand = draft.brand,
+                    description = draft.description,
+                    marks = draft.marks,
+                    hiddenDetail = draft.hiddenDetail,
+                    campus = draft.campus,
+                    location = draft.spot,
+                    locationNote = if (draft.spot.isNotBlank()) draft.spot else "${draft.campus} Campus",
+                    dateTimeLabel = "${draft.dateLabel}, ${draft.timeLabel}",
+                    photoUris = draft.photoUris.toList()
+                )
+                AppRepository.updateItem(updated)
+                Toast.makeText(this, "Post updated!", Toast.LENGTH_SHORT).show()
+            } else {
+                val prefix = if (draft.status == ItemStatus.LOST) "L" else "F"
+                val codeNum = (31..99).random()
+                val user = AppRepository.currentUser
 
-            val newItem = ReportItem(
-                id = "item_${UUID.randomUUID().toString().take(8)}",
-                code = "#$prefix$codeNum",
-                title = draft.title.ifBlank { "Campus Item" },
-                status = draft.status,
-                category = draft.category.ifBlank { getString(R.string.category_other) },
-                colors = draft.colors.toList(),
-                shape = draft.shape,
-                itemType = draft.itemType,
-                brand = draft.brand,
-                description = draft.description,
-                marks = draft.marks,
-                hiddenDetail = draft.hiddenDetail,
-                campus = draft.campus,
-                location = draft.spot,
-                locationNote = if (draft.spot.isNotBlank()) draft.spot else "${draft.campus} Campus",
-                postedTime = "Just now",
-                dateTimeLabel = "${draft.dateLabel}, ${draft.timeLabel}",
-                posterName = user.name,
-                posterInfo = "BINUS ${user.campus} · ${user.major}",
-                posterVerified = user.isVerified,
-                isMine = true,
-                isSaved = false,
-                views = 1,
-                inquiries = 0,
-                photoUris = draft.photoUris.toList()
-            )
-            AppRepository.addItem(newItem)
-            Toast.makeText(this, "Item posted successfully!", Toast.LENGTH_SHORT).show()
+                val newItem = ReportItem(
+                    id = "item_${UUID.randomUUID().toString().take(8)}",
+                    code = "#$prefix$codeNum",
+                    title = draft.title.ifBlank { "Campus Item" },
+                    status = draft.status,
+                    category = draft.category.ifBlank { getString(R.string.category_other) },
+                    colors = draft.colors.toList(),
+                    shape = draft.shape,
+                    itemType = draft.itemType,
+                    brand = draft.brand,
+                    description = draft.description,
+                    marks = draft.marks,
+                    hiddenDetail = draft.hiddenDetail,
+                    campus = draft.campus,
+                    location = draft.spot,
+                    locationNote = if (draft.spot.isNotBlank()) draft.spot else "${draft.campus} Campus",
+                    postedTime = "Just now",
+                    dateTimeLabel = "${draft.dateLabel}, ${draft.timeLabel}",
+                    posterName = user.name,
+                    posterInfo = "BINUS ${user.campus} · ${user.major}",
+                    posterVerified = user.isVerified,
+                    isMine = true,
+                    isSaved = false,
+                    views = 1,
+                    inquiries = 0,
+                    photoUris = draft.photoUris.toList()
+                )
+                AppRepository.addItem(newItem, matchAlerts = draft.matchAlerts)
+                Toast.makeText(this, "Item posted successfully!", Toast.LENGTH_SHORT).show()
+            }
             finish()
         }, 400L)
     }

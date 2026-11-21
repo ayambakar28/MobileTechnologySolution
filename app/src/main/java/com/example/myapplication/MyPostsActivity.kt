@@ -111,20 +111,20 @@ class MyPostsActivity : AppCompatActivity() {
         popup.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.action_edit -> {
-                    val intent = Intent(this, ItemDetailActivity::class.java).apply {
-                        putExtra(ItemDetailActivity.EXTRA_ITEM_ID, item.id)
+                    val intent = Intent(this, PostItemActivity::class.java).apply {
+                        putExtra(PostItemActivity.EXTRA_EDIT_ITEM_ID, item.id)
                     }
                     startActivity(intent)
                     true
                 }
                 R.id.action_mark_found -> {
-                    item.status = ItemStatus.FOUND
+                    AppRepository.updateItemStatus(item.id, ItemStatus.FOUND)
                     renderList()
                     Toast.makeText(this, "Marked as Found", Toast.LENGTH_SHORT).show()
                     true
                 }
                 R.id.action_mark_returned -> {
-                    item.status = ItemStatus.RETURNED
+                    AppRepository.updateItemStatus(item.id, ItemStatus.RETURNED)
                     renderList()
                     Toast.makeText(this, "Marked as Returned", Toast.LENGTH_SHORT).show()
                     true
